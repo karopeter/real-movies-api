@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Put, Delete, Query, HttpCode, HttpStatus, 
 import type { UUID } from 'crypto';
 import { MoviesService } from './movies.service.js';
 import { CreateMovieDto } from './create-movie.dto.js';
+import { ParseObjectIdPipe } from './pipes/parse-object-id.pipe.js';
 //import { MoviesGuard } from './movies.guard.js';
 import { UpdateMovieDto } from './update-movie.dto.js';
 
@@ -20,7 +21,7 @@ export class MoviesController {
 
     // GET /movies/:id
     @Get(':id')
-    findOne(@Param('id', ParseUUIDPipe) id: UUID) {
+    findOne(@Param('id', ParseObjectIdPipe) id: string) {
       return this.movieService.findOne(id);
     }
 
@@ -33,7 +34,7 @@ export class MoviesController {
     // PUT /movies/:id
     @Put(':id')
     update(
-      @Param('id', ParseUUIDPipe) id: UUID,
+      @Param('id', ParseObjectIdPipe) id: string,
       @Body() UpdateMovieDto: UpdateMovieDto,
     ) {
      return this.movieService.update(id, UpdateMovieDto);
@@ -43,7 +44,7 @@ export class MoviesController {
     @Delete(':id')
     // @UseGuards(MoviesGuard)
     @HttpCode(HttpStatus.NO_CONTENT)
-    remove(@Param('id', ParseUUIDPipe) id: UUID) {
+    remove(@Param('id', ParseObjectIdPipe) id: string) {
         return this.movieService.remove(id);
     }
 }
