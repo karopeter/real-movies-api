@@ -1,75 +1,54 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { QueryFilter, Model } from "mongoose"
 import { randomUUID } from 'crypto';
 import { CreateMovieDto } from './create-movie.dto.js';
 import { UpdateMovieDto } from './update-movie.dto.js';
+import { Movie } from './schemas/movie.schema.js';
 
-export interface Movie {
-  id: string;
-  title: string;
-  description: string;
-  genre: string;
-  releaseYear: number;
-  rating: number;
-}
 
 @Injectable()
 export class MoviesService {
-  private movies: Movie[] = [
-    {
-      id: randomUUID(),
-      title: 'Inception',
-      description: 'A thief who steals secrets through dreams is given one last job.',
-      genre: 'Sci-Fi',
-      releaseYear: 2010,
-      rating: 8.8,
-    },
-    {
-      id: randomUUID(),
-      title: 'The Dark Knight',
-      description: 'Batman faces the Joker, a criminal mastermind who wants chaos in Gotham.',
-      genre: 'Action',
-      releaseYear: 2008,
-      rating: 9.0,
-    },
-  ];
+    constructor(@InjectModel(Movie.name) private movieModel: Model<Movie>) {}
 
-  findAll(genre?: string, year?: number) {
-    return this.movies.filter(
-        (movie) => 
-         (!genre || movie.genre.toLowerCase() === genre.toLowerCase()) && 
-        (!year || movie.releaseYear === year),
-    );
-  }
+    async findAll(genre?: string, year?: number) {
+        const filter: QueryFilter<Movie> = {};
+        if (typeof genre === 'string' && genre) filter.genre = genre;
+        if (year) filter.releaseYear = year;
 
-  findOne(id: string) {
-    const matchingMovie = this.movies.find((movie) => movie.id === id);
-
-    if (!matchingMovie) {
-      throw new NotFoundException(`Movie with ID ${id} not found.`);
+        return this.movieModel
+          .find(filter)
+          .collation({ locale: 'en', strength: 2 }) // case-insensitive match
+          .exec();
     }
 
-    return matchingMovie;
-  }
-
-  create(CreateMovieDto: CreateMovieDto) {
-    const newMovie: Movie = { id: randomUUID(), ...CreateMovieDto };
-    this.movies.push(newMovie);
-    return newMovie;
-  }
-
-  update(id: string, updateMovieDto: UpdateMovieDto) {
-    const matchingMovie = this.findOne(id); // throws 404 if missing 
-    Object.assign(matchingMovie, updateMovieDto);
-    return matchingMovie;
-  }
-
-  remove(id: string): void {
-    const matchingIndex = this.movies.findIndex((movie) => movie.id === id);
-
-    if (matchingIndex === -1) {
-        throw new NotFoundException(`Movie with ID ${id} not found`);
+    async findOne(id: string) {
+        const movie = await this.movieModel.findById(id).exec();
+        if (!movie) {
+            throw new NotFoundException(`Movie with ID ${id} not found.`);
+        }
+        return movie;
     }
 
-    this.movies.splice(matchingIndex, 1);
-  }
+    async create(createMovieDto: CreateMovieDto) {
+        return this.movieModel.create(createMovieDto);
+    }
+
+    async update(id: string, updateMovieDto: UpdateMovieDto) {
+        const updated = await this.movieModel
+          .findByIdAndUpdate(id, updateMovieDto, { new: true, runValidators: true })
+          .exec();
+
+        if (!updated) {
+          throw new NotFoundException(`Movie with ID ${id} not found.`);
+        }
+        return updated;
+    }
+
+    async remove(id: string): Promise<void> {
+        const deleted = await this.movieModel.findByIdAndDelete(id).exec();
+        if (!deleted) {
+          throw new NotFoundException(`Movie with ID ${id} not found.`);
+        }
+    }
 }
